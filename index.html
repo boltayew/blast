@@ -3,83 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Block Blast TMA</title>
+    <title>Block Blast Master</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { margin: 0; background-color: #121212; overflow: hidden; display: flex; justify-content: center; }
-        canvas { touch-action: none; }
+        body { margin: 0; background: #121212; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        canvas { border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+<script>
+    const config = {
+        type: Phaser.AUTO,
+        width: 400,
+        height: 650,
+        backgroundColor: '#1a1a1a',
+        scene: { preload: preload, create: create }
+    };
 
-        const config = {
-            type: Phaser.AUTO,
-            width: 400,
-            height: 650,
-            backgroundColor: '#1a1a1a',
-            scene: { preload: preload, create: create }
+    const game = new Phaser.Game(config);
+    let grid = Array(8).fill().map(() => Array(8).fill(0));
+    let gridSprites = Array(8).fill().map(() => Array(8).fill(null));
+    let score = 0;
+    let scoreText;
+
+    // Shakllar kutubxonasi
+    const SHAPES = [
+        { s: [[1,1], [1,1]], c: 0xff5733 }, // Kvadrat
+        { s: [[1,1,1,1]], c: 0x33ff57 },    // Uzun tayoqcha
+        { s: [[1,0], [1,0], [1,1]], c: 0x3357ff }, // L shakli
+        { s: [[1,1,1], [0,1,0]], c: 0xf333ff },    // T shakli
+        { s: [[1]], c: 0xffdb33 }           // Mitti kvadrat
+    ];
+
+    function preload() {
+        this.load.image('tile', 'https://labs.phaser.io/assets/sprites/50x50.png');
+    }
+
+    function create() {
+        const cellSize = 45;
+        const startX = 42;
+        const startY = 120;
+
+        scoreText = this.add.text(20, 30, 'Score: 0', { fontSize: '28px', fill: '#fff', fontWeight: 'bold' });
+
+        // Setkani chizish
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                gridSprites[r][c] = this.add.rectangle(startX + c * cellSize, startY + r * cellSize, 40, 40, 0x333333);
+            }
+        }
+
+        const createPiece = (x, y) => {
+            const randomType = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+            const container = this.add.container(x, y);
+            
+            randomType.s.forEach((row, rIdx) => {
+                row.forEach((val, cIdx) => {
+                    if (val) {
+                        let b = this.add.sprite(cIdx * 25, rIdx * 25, 'tile').setDisplaySize(23, 23).setTint(randomType.c);
+                        container.add(b);
+                    }
+                });
+            });
+
+            container.setSize(randomType.s[0].length * 25, randomType.s.length * 25);
+            container.setInteractive({ draggable: true });
+            container.color = randomType.c;
+            container.shape = randomType.s;
+
+            this.input.setDraggable(container);
+
+            container.on('drag', (p, dx, dy) => { container.x = dx; container.y = dy; });
+
+            container.on('dragend', () => {
+                let gridC = Math.round((container.x - startX) / cellSize);
+                let gridR = Math.round((container.y - startY) / cellSize);
+
+                if (canPlace(gridR, gridC, container.shape)) {
+                    placePiece(gridR, gridC, container);
+                    checkAndClear();
+                    createPiece(200, 550); // Yangi blok chiqarish
+                } else {
+                    container.x = x; container.y = y; // Joyiga qaytarish
+                }
+            });
         };
 
-        const game = new Phaser.Game(config);
-
-        function preload() {
-            // Blok uchun oddiy oq kvadrat yaratish
-            this.load.image('block', 'https://labs.phaser.io/assets/sprites/50x50.png');
-        }
-
-        function create() {
-            const gridSize = 8;
-            const cellSize = 45;
-            const startX = 40;
-            const startY = 100;
-
-            // 1. Maydonni (Grid) chizish
-            for (let r = 0; r < gridSize; r++) {
-                for (let c = 0; c < gridSize; c++) {
-                    this.add.rectangle(startX + c * cellSize, startY + r * cellSize, 40, 40, 0x333333);
-                }
-            }
-
-            // 2. Namuna bloklarini yaratish (uchta blok)
-            const colors = [0xff5733, 0x33ff57, 0x3357ff];
-            
-            for (let i = 0; i < 3; i++) {
-                let piece = this.add.container(80 + i * 120, 550);
-                
-                // Kvadrat shaklidagi blok (2x2)
-                for(let r=0; r<2; r++) {
-                    for(let c=0; c<2; c++) {
-                        let b = this.add.sprite(c*22, r*22, 'block').setDisplaySize(20, 20);
-                        b.setTint(colors[i]);
-                        piece.add(b);
+        const canPlace = (r, c, shape) => {
+            for (let i = 0; i < shape.length; i++) {
+                for (let j = 0; j < shape[i].length; j++) {
+                    if (shape[i][j]) {
+                        let nr = r + i, nc = c + j;
+                        if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8 || grid[nr][nc] !== 0) return false;
                     }
                 }
+            }
+            return true;
+        };
 
-                piece.setSize(44, 44);
-                piece.setInteractive({ draggable: true });
+        const placePiece = (r, c, container) => {
+            container.shape.forEach((row, i) => {
+                row.forEach((val, j) => {
+                    if (val) {
+                        grid[r + i][c + j] = 1;
+                        gridSprites[r + i][c + j].setFillStyle(container.color);
+                    }
+                });
+            });
+            container.destroy();
+        };
 
-                // 3. Surish mexanikasi
-                this.input.setDraggable(piece);
+        const checkAndClear = () => {
+            let rowsToClear = [];
+            let colsToClear = [];
+
+            for (let i = 0; i < 8; i++) {
+                if (grid[i].every(v => v === 1)) rowsToClear.push(i);
+                if (grid.map(row => row[i]).every(v => v === 1)) colsToClear.push(i);
             }
 
-            this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
-                gameObject.x = dragX;
-                gameObject.y = dragY;
+            rowsToClear.forEach(r => {
+                grid[r] = Array(8).fill(0);
+                gridSprites[r].forEach(s => s.setFillStyle(0x333333));
+                score += 100;
             });
 
-            this.input.on('dragend', (pointer, gameObject) => {
-                // Joyiga qaytarish (Snap mantiqi hozircha sodda)
-                if (gameObject.y > 450) {
-                    gameObject.y = 550;
+            colsToClear.forEach(c => {
+                for(let r=0; r<8; r++) {
+                    grid[r][c] = 0;
+                    gridSprites[r][c].setFillStyle(0x333333);
                 }
+                score += 100;
             });
 
-            this.add.text(100, 30, "BLOCK BLAST", { fontSize: '32px', fill: '#fff', fontWeight: 'bold' });
-        }
-    </script>
+            scoreText.setText('Score: ' + score);
+        };
+
+        createPiece(200, 550);
+    }
+</script>
 </body>
 </html>
