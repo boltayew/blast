@@ -1,129 +1,78 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        body { margin: 0; background: #121212; overflow: hidden; font-family: sans-serif; }
-        #ui-overlay { position: absolute; color: white; padding: 10px; pointer-events: none; width: 100%; }
-    </style>
+    <style>body { margin: 0; background: #121212; overflow: hidden; }</style>
 </head>
 <body>
-    <div id="ui-overlay">
-        <div id="welcome-msg"></div>
-    </div>
 <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
-    const userName = tg.initDataUnsafe?.user?.first_name || "O'yinchi";
 
     const config = {
-        type: Phaser.AUTO,
-        width: 400,
-        height: 700,
-        backgroundColor: '#1a1a1a',
+        type: Phaser.AUTO, width: 400, height: 700, backgroundColor: '#1a1a1a',
         scene: { preload: preload, create: create }
     };
-
     const game = new Phaser.Game(config);
     let grid = Array(8).fill().map(() => Array(8).fill(0));
     let gridSprites = Array(8).fill().map(() => Array(8).fill(null));
-    let score = 0, highScore = localStorage.getItem('block_high_score') || 0;
-    let scoreText, highText;
+    let score = 0, highScore = localStorage.getItem('blast_rec') || 0;
+    let scoreText;
 
-    function preload() {
-        this.load.image('tile', 'https://labs.phaser.io/assets/sprites/50x50.png');
-    }
+    const SHAPES = [
+        { s: [[1,1], [1,1]], c: 0xff4757 }, { s: [[1,1,1,1]], c: 0x2ed573 },
+        { s: [[1,1,1], [0,1,0]], c: 0x1e90ff }, { s: [[1]], c: 0xfff200 }
+    ];
+
+    function preload() { this.load.image('t', 'https://labs.phaser.io/assets/sprites/50x50.png'); }
 
     function create() {
-        document.getElementById('welcome-msg').innerText = `Salom ${userName}, Block Blastga xush kelibsiz!`;
-        
-        scoreText = this.add.text(20, 50, 'Ball: 0', { fontSize: '24px', fill: '#fff' });
-        highText = this.add.text(20, 80, 'Rekord: ' + highScore, { fontSize: '18px', fill: '#aaa' });
-
-        // Setkani yaratish
+        scoreText = this.add.text(20, 40, 'Ball: 0', { fontSize: '32px', fill: '#fff', fontWeight: 'bold' });
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 gridSprites[r][c] = this.add.rectangle(45 + c * 45, 180 + r * 45, 42, 42, 0x333333);
             }
         }
-
         spawnPieces(this);
     }
 
     function spawnPieces(scene) {
-        if (scene.currentPieces) scene.currentPieces.forEach(p => p.destroy());
         scene.currentPieces = [];
         for (let i = 0; i < 3; i++) {
-            let p = createDraggablePiece(scene, 80 + i * 120, 600, 0.5);
-            scene.currentPieces.push(p);
+            scene.currentPieces.push(createPiece(scene, 80 + i * 120, 600));
         }
         checkGameOver(scene);
     }
 
-    function createDraggablePiece(scene, x, y, scale) {
-        const SHAPES = [
-            { s: [[1,1], [1,1]], c: 0xff4757 },
-            { s: [[1,1,1,1]], c: 0x2ed573 },
-            { s: [[1,1,1], [0,1,0]], c: 0x1e90ff },
-            { s: [[1,1,1], [1,0,0]], c: 0xffa502 }
-        ];
+    function createPiece(scene, x, y) {
         const type = SHAPES[Math.floor(Math.random() * SHAPES.length)];
         const container = scene.add.container(x, y);
-        
-        type.s.forEach((row, rIdx) => {
-            row.forEach((v, cIdx) => {
-                if (v) container.add(scene.add.sprite(cIdx*25, rIdx*25, 'tile').setDisplaySize(23, 23).setTint(type.c));
-            });
-        });
-
-        container.setSize(80, 80).setInteractive({ draggable: true }).setScale(scale);
-        container.shape = type.s;
-        container.color = type.c;
-
+        type.s.forEach((row, rIdx) => row.forEach((v, cIdx) => {
+            if (v) container.add(scene.add.sprite(cIdx*25, rIdx*25, 't').setDisplaySize(23, 23).setTint(type.c));
+        }));
+        container.setSize(80, 80).setInteractive({ draggable: true }).setScale(0.6);
+        container.shape = type.s; container.color = type.c;
         scene.input.setDraggable(container);
 
-        container.on('drag', (p, dx, dy) => {
-            container.setScale(1);
-            container.x = dx;
-            container.y = dy - 60;
-            showPreview(container);
-        });
-
+        container.on('drag', (p, dx, dy) => { container.setScale(1); container.x = dx; container.y = dy - 60; });
         container.on('dragend', () => {
-            let c = Math.round((container.x - 45) / 45);
-            let r = Math.round((container.y - 180) / 45);
-
+            let c = Math.round((container.x - 45) / 45), r = Math.round((container.y - 180) / 45);
             if (canPlace(r, c, container.shape)) {
                 placePiece(r, c, container);
+                score += 10; // HAR BIR QO'YILGAN BLOK UCHUN BALL!
+                scoreText.setText('Ball: ' + score);
                 container.destroy();
                 scene.currentPieces = scene.currentPieces.filter(p => p !== container);
                 if (scene.currentPieces.length === 0) spawnPieces(scene);
                 clearLines();
             } else {
-                scene.tweens.add({ targets: container, x: x, y: y, scale: scale, duration: 200 });
+                scene.tweens.add({ targets: container, x: x, y: y, scale: 0.6, duration: 200 });
             }
-            clearPreview();
         });
-
         return container;
-    }
-
-    function showPreview(piece) {
-        clearPreview();
-        let c = Math.round((piece.x - 45) / 45);
-        let r = Math.round((piece.y - 180) / 45);
-        if (canPlace(r, c, piece.shape)) {
-            piece.shape.forEach((row, i) => row.forEach((v, j) => {
-                if (v) gridSprites[r+i][c+j].setStrokeStyle(3, 0xffffff);
-            }));
-        }
-    }
-
-    function clearPreview() {
-        gridSprites.flat().forEach(s => s.setStrokeStyle(0));
     }
 
     function canPlace(r, c, s) {
@@ -147,30 +96,25 @@
         rToClear.forEach(r => {
             grid[r] = Array(8).fill(0);
             gridSprites[r].forEach(s => s.setFillStyle(0x333333));
-            score += 80;
+            score += 100;
         });
         cToClear.forEach(c => {
             for(let r=0; r<8; r++) { grid[r][c] = 0; gridSprites[r][c].setFillStyle(0x333333); }
-            score += 80;
+            score += 100;
         });
-        if (score > highScore) {
-            highScore = score;
-            localStorage.setItem('block_high_score', highScore);
-            highText.setText('Rekord: ' + highScore);
-        }
         scoreText.setText('Ball: ' + score);
     }
 
     function checkGameOver(scene) {
         let possible = scene.currentPieces.some(p => {
-            for(let r=0; r<8; r++) {
-                for(let c=0; c<8; c++) {
-                    if (canPlace(r, c, p.shape)) return true;
-                }
-            }
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) if (canPlace(r, c, p.shape)) return true;
             return false;
         });
-        if (!possible) alert("O'yin tugadi! Ball: " + score);
+        if (!possible) {
+            tg.sendData(JSON.stringify({score: score}));
+            alert("O'yin tugadi! Ball: " + score);
+            window.location.reload();
+        }
     }
 </script>
 </body>
