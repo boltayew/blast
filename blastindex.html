@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { margin: 0; background: #1a1a1a; display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // O'yinni to'liq ekranda ochish
+
+        const config = {
+            type: Phaser.AUTO,
+            width: 400,
+            height: 600,
+            backgroundColor: '#222',
+            scene: { preload: preload, create: create }
+        };
+
+        const game = new Phaser.Game(config);
+
+        function preload() {
+            // Blok uchun oddiy oq kvadrat rasmcha yaratamiz
+            this.load.image('block', 'https://labs.phaser.io/assets/sprites/50x50.png');
+        }
+
+        function create() {
+            // 8x8 Setka chizish
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    this.add.rectangle(50 + i * 42, 100 + j * 42, 40, 40, 0x333333);
+                }
+            }
+
+            // Suriladigan bitta blok yaratish (Namuna)
+            let piece = this.add.sprite(200, 500, 'block').setInteractive();
+            piece.setTint(0x0088cc); // Telegram ko'k rangi
+
+            // Blokni surish mexanikasi
+            this.input.setDraggable(piece);
+
+            this.input.on('drag', function (pointer, gameObject, dragX, dragY) {
+                gameObject.x = dragX;
+                gameObject.y = dragY;
+            });
+
+            this.add.text(120, 20, "Block Blast TMA", { fontSize: '20px', fill: '#fff' });
+        }
+    </script>
+</body>
+</html>
