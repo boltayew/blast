@@ -53,23 +53,30 @@
             }
         }
 
-        const createPiece = (x, y) => {
-            const randomType = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-            const container = this.add.container(x, y);
-            
-            randomType.s.forEach((row, rIdx) => {
-                row.forEach((val, cIdx) => {
-                    if (val) {
-                        let b = this.add.sprite(cIdx * 25, rIdx * 25, 'tile').setDisplaySize(23, 23).setTint(randomType.c);
-                        container.add(b);
-                    }
-                });
-            });
+      // createPiece funksiyasini mana bu bilan almashtirib ko'ring (sinov uchun)
+const createPiece = (x, y) => {
+    const randomType = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    const container = this.add.container(x, y);
+    
+    console.log("Yangi blok yaratildi!"); // Tekshirish uchun log
 
-            container.setSize(randomType.s[0].length * 25, randomType.s.length * 25);
-            container.setInteractive({ draggable: true });
-            container.color = randomType.c;
-            container.shape = randomType.s;
+    randomType.s.forEach((row, rIdx) => {
+        row.forEach((val, cIdx) => {
+            if (val) {
+                // Katakchalar kattaroq va ko'rinadigan bo'lishi uchun
+                let b = this.add.rectangle(cIdx * 45, rIdx * 45, 40, 40, randomType.c);
+                container.add(b);
+            }
+        });
+    });
+
+    container.setSize(100, 100);
+    container.setInteractive({ draggable: true });
+    container.color = randomType.c;
+    container.shape = randomType.s;
+
+    this.input.setDraggable(container);
+};
 
             this.input.setDraggable(container);
 
@@ -144,3 +151,4 @@
 </script>
 </body>
 </html>
+
